@@ -1,20 +1,14 @@
 #include <stdio.h>
 #include <string.h>
+#include "sim_os.h"
 
-#define OK					0
-#define ARGUMENT_ERROR		1
-#define FILE_OPEN_ERROR		2
-#define FILE_EOF_ERROR		3
-#define FILE_INPUT_ERROR	4
 
-#define STR_NUM				1
-#define STR_DOT				2
-#define STR_ENDLINE			3
-
-#define MEMORY_SIZE			2000
-
-#define _DEBUG_FILENAME_	"sample1.txt"
+#define _DEBUG_FILENAME_	"sample4.txt"
 #define _DEBUG_
+
+
+
+long stack[STACK_SIZE] = {0};
 
 int mem[MEMORY_SIZE] = {0};
 
@@ -24,6 +18,22 @@ void resetMemory(void)
 	int i;
 	for(i=0; i<MEMORY_SIZE; i++)
 		mem[i] = 0;
+}
+
+void resetStack(void)
+{
+	int i;
+	for(i=0; i<STACK_SIZE; i++)
+		stack[i] = 0;
+}
+
+void resetReg(SimReg *pReg)
+{
+	pReg->AC = 0;
+	pReg->X = 0;
+	pReg->Y = 0;
+	pReg->SP = 0;
+	pReg->PC = 0;
 }
 
 int read2memory(FILE *fp)
@@ -36,9 +46,9 @@ int read2memory(FILE *fp)
 	while((fgets(tempLine,100,fp)) != NULL)
 	{
 		firstChar = tempLine[0];
-#ifdef _DEBUG_
-		printf("%c", firstChar);
-#endif /* _DEBUG_ */
+// #ifdef _DEBUG_
+		// printf("%c", firstChar);
+// #endif /* _DEBUG_ */
 		charType = 0;
 		
 		if((firstChar >= '0') && (firstChar <= '9'))		// number
@@ -47,14 +57,16 @@ int read2memory(FILE *fp)
 			charType = STR_DOT;
 		else if((firstChar == '\r') || (firstChar == '\n'))		// new line
 			charType = STR_ENDLINE;
-		
+		else if(firstChar == ' ')		// space
+			charType = STR_SPACE;
+			
 		switch(charType)
 		{
 		case STR_NUM:		// number
 			sscanf(tempLine, "%d", mem+curMemoryPoint);
 			
 #ifdef _DEBUG_
-			printf("\r\nLINE NUM=%d\t,CODE=%d\r\n", curMemoryPoint, mem[curMemoryPoint]);
+			printf("LINE NUM=%d\t,CODE=%d\r\n", curMemoryPoint, mem[curMemoryPoint]);
 #endif /* _DEBUG_ */
 			curMemoryPoint++;
 			break;
@@ -62,6 +74,9 @@ int read2memory(FILE *fp)
 			sscanf(tempLine+1, "%d", &curMemoryPoint);
 			break;
 		case STR_ENDLINE:	// new line only surport UNIX and Mac file (Windows type end of line didn't work)
+			curMemoryPoint++;
+			break;
+		case STR_SPACE:	// new line only surport UNIX and Mac file (Windows type end of line didn't work)
 			curMemoryPoint++;
 			break;
 		default:
@@ -72,7 +87,7 @@ int read2memory(FILE *fp)
 		}
 	}
 	
-	printf("finish read to memory\r\n");
+	printf("\r\nfinish read to memory\r\n");
 	return OK;
 }
 
@@ -94,7 +109,7 @@ int load_code(char *filename)
 	
 	resetMemory();
 	
-	fseek(fp, 0L, SEEK_SET);	// reset fp pointer
+	fseek(fp, 0L, SEEK_SET);	// reset file pointer
 	
 	status = read2memory(fp);
 	if(status != OK)
@@ -105,15 +120,25 @@ int load_code(char *filename)
 	return OK;
 }
 
+int run_code(SimReg *pReg)
+{
+	resetReg(pReg);
+	resetStack();
+	
+	
+	
+	return OK;
+}
+
 int main(int argc, char** argv)
 {
-	int status = 0;
-	char filename[100];
+	int errno = 0;	// error number
+	char filename[100];	// store file name
+	SimReg Reg;
+	SimReg *pReg = &Reg;
 	
-	if(argc <= 1)
+	if(argc <= 1)	// no argument, use default filename
 	{
-		// getchar();
-		// return ARGUMENT_ERROR;
 		strcpy(filename, _DEBUG_FILENAME_);
 		printf("default load file:%s\r\n", filename);
 	}
@@ -122,12 +147,14 @@ int main(int argc, char** argv)
 		strcpy(filename, argv[1]);
 	}
 	
-	if(status = load_code(filename))
+	if(errno = load_code(filename))
 	{
-		printf("error code: %d", status);
+		printf("error code: %d\r\n", errno);
 		getchar();
-		return status;
+		return errno;
 	}
+	
+	
 	
 	
 	getchar();
