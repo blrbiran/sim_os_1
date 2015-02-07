@@ -15,6 +15,8 @@
 #define MEMORY_SIZE			2000
 #define STACK_SIZE			200
 
+#define TIMER_CALL_ADDR		1000
+#define SYS_CALL_ADDR		1500
 
 #define LOAD_VALUE				1		// Load the value into the AC
 #define LOAD_ADDR				2		// Load the value at the address into the AC
@@ -55,6 +57,7 @@ typedef struct SimRegister
 	long Y;
 	long SP;
 	long PC;
+	long IR;
 } SimReg;
 
 
@@ -63,6 +66,7 @@ void resetStack(void);
 void resetReg(SimReg *pReg);
 int read2memory(FILE *fp);
 int load_code(char *filename);
+int get_random(void);
 int run_code(SimReg *pReg);
 
 
