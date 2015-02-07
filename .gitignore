@@ -1,0 +1,5 @@
+*.txt
+*.o
+!/*.c
+!/*.h
+!.gitignore
