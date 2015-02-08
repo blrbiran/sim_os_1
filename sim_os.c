@@ -4,15 +4,13 @@
 #include "sim_os.h"
 
 
-#define _DEBUG_FILENAME_	"sample2.txt"
+#define _DEBUG_FILENAME_	"sample4.txt"
 #define _DEBUG_X_TIMER_		30
 #define _DEBUG_
 
 
 
 int mem[MEMORY_SIZE] = {0};
-// int stack[STACK_SIZE] = {0};
-// int sys_stack[STACK_SIZE] = {0};
 
 void resetMemory(void)
 {
@@ -20,13 +18,6 @@ void resetMemory(void)
 	for(i=0; i<MEMORY_SIZE; i++)
 		mem[i] = 0;
 }
-
-// void resetStack(int *stack)
-// {
-	// int i;
-	// for(i=0; i<STACK_SIZE; i++)
-		// stack[i] = 0;
-// }
 
 void resetReg(SimReg *pReg)
 {
@@ -150,7 +141,7 @@ int get_random(void)
 	return n;
 }
 
-void mem_protection(int Addr, int sys_mode)
+void mem_protection(long Addr, int sys_mode)
 {
 	if(sys_mode == 0)
 	{
@@ -160,6 +151,25 @@ void mem_protection(int Addr, int sys_mode)
 			getchar();
 			exit(0);
 		}
+	}
+}
+
+void PC_protection(long PC, int sys_mode)
+{
+	if(sys_mode == 0)
+	{
+		if(PC >= PROTECTION_ADDR)
+		{
+			printf("\r\nuser program cannot access system memory!\r\n");
+			getchar();
+			exit(0);
+		}
+	}
+	if(PC > MEMORY_OVER_ADDR)
+	{
+		printf("\r\nprogram memory overflow!\r\n");
+		getchar();
+		exit(0);
 	}
 }
 
@@ -177,11 +187,11 @@ int run_code(SimReg *pReg, int TimerCnt)
 	
 	pReg->SP = USER_STACK_ADDR;
 	sys_SP = SYS_STACK_ADDR;
-	// resetStack(stack);
-	// resetStack(sys_stack);
 	
 	while((pReg->IR = mem[pReg->PC++]) != END)
 	{
+		PC_protection(pReg->PC, sys_mode);
+		
 		switch(pReg->IR)
 		{
 		case LOAD_VALUE:	// Load the value into the AC
@@ -249,7 +259,6 @@ int run_code(SimReg *pReg, int TimerCnt)
 		case COPYFROMY:		// Copy the value in Y to the AC
 			pReg->AC = pReg->Y;
 			break;
-		
 		case COPYFROMSP:		// Copy the value in SP to the AC
 			pReg->AC = pReg->SP;
 			break;
@@ -273,11 +282,11 @@ int run_code(SimReg *pReg, int TimerCnt)
 		case CALL_ADDR:		// Push return address onto stack, jump to the address
 			Addr = mem[pReg->PC++];
 			mem_protection(Addr, sys_mode);
-			mem[pReg->SP++] = pReg->PC;	// push onto stack
+			mem[pReg->SP--] = pReg->PC;	// push onto stack
 			pReg->PC = Addr;
 			break;
 		case RET:		// Pop return address from the stack, jump to the address
-			pReg->PC = mem[--(pReg->SP)];	// pop from stack
+			pReg->PC = mem[++(pReg->SP)];	// pop from stack
 			break;
 		case INCX:		// Increment the value in X
 			pReg->X++;
@@ -305,6 +314,7 @@ int run_code(SimReg *pReg, int TimerCnt)
 			break;
 		default:		// default
 			break;
+			// getchar();
 		}
 		loopCnt++;
 		if((loopCnt >= TimerCnt) && (is_Interrupt == 0))
