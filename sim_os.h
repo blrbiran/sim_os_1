@@ -13,8 +13,12 @@
 #define STR_SPACE			4
 
 #define MEMORY_SIZE			2000
-#define STACK_SIZE			200
+// #define STACK_SIZE			200
 
+#define USER_STACK_ADDR		999
+#define SYS_STACK_ADDR		1999
+
+#define PROTECTION_ADDR		1000
 #define TIMER_CALL_ADDR		1000
 #define SYS_CALL_ADDR		1500
 
@@ -62,12 +66,15 @@ typedef struct SimRegister
 
 
 void resetMemory(void);
-void resetStack(void);
+// void resetStack(int *stack);
 void resetReg(SimReg *pReg);
 int read2memory(FILE *fp);
 int load_code(char *filename);
+void push_reg(SimReg *pReg, long *SP);
+void pop_reg(SimReg *pReg, long *SP);
 int get_random(void);
-int run_code(SimReg *pReg);
+void mem_protection(int Addr, int sys_mode);
+int run_code(SimReg *pReg, int TimerCnt);
 
 
 #endif /* __SIM_OS_H__ */

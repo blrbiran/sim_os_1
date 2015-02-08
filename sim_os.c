@@ -4,13 +4,15 @@
 #include "sim_os.h"
 
 
-#define _DEBUG_FILENAME_	"sample1.txt"
+#define _DEBUG_FILENAME_	"sample2.txt"
+#define _DEBUG_X_TIMER_		30
 #define _DEBUG_
 
 
 
 int mem[MEMORY_SIZE] = {0};
-int stack[STACK_SIZE] = {0};
+// int stack[STACK_SIZE] = {0};
+// int sys_stack[STACK_SIZE] = {0};
 
 void resetMemory(void)
 {
@@ -19,12 +21,12 @@ void resetMemory(void)
 		mem[i] = 0;
 }
 
-void resetStack(void)
-{
-	int i;
-	for(i=0; i<STACK_SIZE; i++)
-		stack[i] = 0;
-}
+// void resetStack(int *stack)
+// {
+	// int i;
+	// for(i=0; i<STACK_SIZE; i++)
+		// stack[i] = 0;
+// }
 
 void resetReg(SimReg *pReg)
 {
@@ -120,6 +122,26 @@ int load_code(char *filename)
 	return OK;
 }
 
+void push_reg(SimReg *pReg, long *SP)
+{
+	mem[(*SP)--] = pReg->SP;
+	mem[(*SP)--] = pReg->AC;
+	mem[(*SP)--] = pReg->X;
+	mem[(*SP)--] = pReg->Y;
+	mem[(*SP)--] = pReg->PC;
+	mem[(*SP)--] = pReg->IR;
+}
+
+void pop_reg(SimReg *pReg, long *SP)
+{
+	pReg->IR = mem[++(*SP)];
+	pReg->PC = mem[++(*SP)];
+	pReg->Y = mem[++(*SP)];
+	pReg->X = mem[++(*SP)];
+	pReg->AC = mem[++(*SP)];
+	pReg->SP = mem[++(*SP)];
+}
+
 int get_random(void)
 {
 	int n;
@@ -128,36 +150,61 @@ int get_random(void)
 	return n;
 }
 
-int run_code(SimReg *pReg)
+void mem_protection(int Addr, int sys_mode)
+{
+	if(sys_mode == 0)
+	{
+		if(Addr >= PROTECTION_ADDR)
+		{
+			printf("\r\nuser program cannot access system memory!\r\n");
+			getchar();
+			exit(0);
+		}
+	}
+}
+
+int run_code(SimReg *pReg, int TimerCnt)
 {
 	long Addr = 0;
-	long Code = 0;
+	// long Code = 0;
 	long Port = 0;
+	int loopCnt = 0;
+	int is_Interrupt = 0;		// 0:not in interrupt; 1:in int
+	int sys_mode = 0;	// 0: user mode; 1:sys mode
+	long sys_SP = 0;
 	
 	resetReg(pReg);
-	resetStack();
 	
-	while((Code = mem[pReg->PC++]) != END)
+	pReg->SP = USER_STACK_ADDR;
+	sys_SP = SYS_STACK_ADDR;
+	// resetStack(stack);
+	// resetStack(sys_stack);
+	
+	while((pReg->IR = mem[pReg->PC++]) != END)
 	{
-		switch(Code)
+		switch(pReg->IR)
 		{
 		case LOAD_VALUE:	// Load the value into the AC
 			pReg->AC = mem[pReg->PC++];
 			break;
 		case LOAD_ADDR:		// Load the value at the address into the AC
 			Addr = mem[pReg->PC++];
+			mem_protection(Addr, sys_mode);
 			pReg->AC = mem[Addr];
 			break;
 		case LOADIND_ADDR:	// Load the value from the address found in the address into the AC
 			Addr = mem[pReg->PC++];
+			mem_protection(Addr, sys_mode);
 			pReg->AC = mem[mem[Addr]];
 			break;
 		case LOADIDXX_ADDR:		// Load the value at (address+X) into the AC
 			Addr = mem[pReg->PC++];
+			mem_protection(Addr, sys_mode);
 			pReg->AC = mem[Addr+(pReg->X)];
 			break;
 		case LOADIDXY_ADDR:		// Load the value at (address+X) into the AC
 			Addr = mem[pReg->PC++];
+			mem_protection(Addr, sys_mode);
 			pReg->AC = mem[Addr+(pReg->Y)];
 			break;
 		case LOADSPX:		// Load from (Sp+X) into the AC
@@ -165,6 +212,7 @@ int run_code(SimReg *pReg)
 			break;
 		case STORE_ADDR:	// Store the value in the AC into the address
 			Addr = mem[pReg->PC++];
+			mem_protection(Addr, sys_mode);
 			mem[Addr] = pReg->AC;
 			break;
 		case GET:	// Gets a random int from 1 to 100 into the AC
@@ -207,25 +255,29 @@ int run_code(SimReg *pReg)
 			break;
 		case JUMP_ADDR:		// Jump to the address
 			Addr = mem[pReg->PC++];
+			mem_protection(Addr, sys_mode);
 			pReg->PC = Addr;
 			break;
 		case JUMPIFEQUAL_ADDR:	// Jump to the address only if the value in the AC is zero
 			Addr = mem[pReg->PC++];
+			mem_protection(Addr, sys_mode);
 			if(pReg->AC == 0)
 				pReg->PC = Addr;
 			break;
 		case JUMPIFNOTEQUAL_ADDR:	// Jump to the address only if the value in the AC is not zero
 			Addr = mem[pReg->PC++];
+			mem_protection(Addr, sys_mode);
 			if(pReg->AC != 0)
 				pReg->PC = Addr;
 			break;
 		case CALL_ADDR:		// Push return address onto stack, jump to the address
 			Addr = mem[pReg->PC++];
-			stack[pReg->SP++] = pReg->PC;	// push onto stack
+			mem_protection(Addr, sys_mode);
+			mem[pReg->SP++] = pReg->PC;	// push onto stack
 			pReg->PC = Addr;
 			break;
 		case RET:		// Pop return address from the stack, jump to the address
-			pReg->PC = stack[--(pReg->SP)];	// pop from stack
+			pReg->PC = mem[--(pReg->SP)];	// pop from stack
 			break;
 		case INCX:		// Increment the value in X
 			pReg->X++;
@@ -234,21 +286,33 @@ int run_code(SimReg *pReg)
 			pReg->X--;
 			break;
 		case PUSH:		// Push AC onto stack
-			stack[pReg->SP++] = pReg->AC;	// push onto stack
+			mem[pReg->SP--] = pReg->AC;	// push onto stack
 			break;
 		case POP:		// Pop from stack into AC
-			pReg->AC = stack[--(pReg->SP)];	// pop from stack
+			pReg->AC = mem[++(pReg->SP)];	// pop from stack
 			break;
 		case INT:		// Set system mode, switch stack, push SP and PC, set new SP and PC
-			
-			
+			push_reg(pReg, &sys_SP);
+			pReg->PC = SYS_CALL_ADDR;
+			is_Interrupt = 1;
+			sys_mode = 1;
 			break;
 		case IRET:		// Restore registers, set user mode
-			
-			
+			pop_reg(pReg, &sys_SP);
+			if(is_Interrupt == 1)
+				is_Interrupt = 0;
+			sys_mode = 0;
 			break;
 		default:		// default
 			break;
+		}
+		loopCnt++;
+		if((loopCnt >= TimerCnt) && (is_Interrupt == 0))
+		{
+			sys_mode = 1;
+			loopCnt = 0;
+			push_reg(pReg, &sys_SP);
+			pReg->PC = TIMER_CALL_ADDR;
 		}
 	}
 	
@@ -259,17 +323,20 @@ int main(int argc, char** argv)
 {
 	int errno = 0;	// error number
 	char filename[100];	// store file name
+	int TimerCnt = 0;
 	SimReg Reg;
 	SimReg *pReg = &Reg;
 	
-	if(argc <= 1)	// no argument, use default filename
+	if(argc <= 2)	// no argument, use default filename
 	{
 		strcpy(filename, _DEBUG_FILENAME_);
 		printf("default load file:%s\r\n", filename);
+		TimerCnt = _DEBUG_X_TIMER_;
 	}
 	else
 	{
 		strcpy(filename, argv[1]);
+		sscanf(argv[2], "%d", &TimerCnt);
 	}
 	
 	if(errno = load_code(filename))
@@ -279,7 +346,7 @@ int main(int argc, char** argv)
 		return errno;
 	}
 	
-	if(errno = run_code(pReg))
+	if(errno = run_code(pReg, TimerCnt))
 	{
 		printf("error code: %d\r\n", errno);
 		getchar();
