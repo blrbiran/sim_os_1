@@ -182,6 +182,7 @@ int run_code(SimReg *pReg, int TimerCnt, int *pd)
 	int loopCnt = 0;
 	int is_Interrupt = 0;		// 0:not in interrupt; 1:in int
 	int sys_mode = 0;	// 0: user mode; 1:sys mode
+	long user_SP = 0;
 	long sys_SP = 0;
 	int pd_buf;
 	

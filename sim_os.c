@@ -4,7 +4,7 @@
 #include "sim_os.h"
 
 
-#define _DEBUG_FILENAME_	"sample2.txt"
+#define _DEBUG_FILENAME_	"sample4.txt"
 #define _DEBUG_X_TIMER_		30
 #define _DEBUG_
 
