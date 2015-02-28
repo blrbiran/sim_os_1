@@ -118,22 +118,14 @@ int load_code(char *filename)
 
 void push_reg(SimReg *pReg, long *SP)
 {
-	mem[(*SP)--] = pReg->SP;
-	mem[(*SP)--] = pReg->AC;
-	mem[(*SP)--] = pReg->X;
-	mem[(*SP)--] = pReg->Y;
-	mem[(*SP)--] = pReg->PC;
-	mem[(*SP)--] = pReg->IR;
+	mem[--(*SP)] = pReg->PC;
+	mem[--(*SP)] = pReg->IR;
 }
 
 void pop_reg(SimReg *pReg, long *SP)
 {
-	pReg->IR = mem[++(*SP)];
-	pReg->PC = mem[++(*SP)];
-	pReg->Y = mem[++(*SP)];
-	pReg->X = mem[++(*SP)];
-	pReg->AC = mem[++(*SP)];
-	pReg->SP = mem[++(*SP)];
+	pReg->IR = mem[(*SP)++];
+	pReg->PC = mem[(*SP)++];
 }
 
 int get_random(void)
@@ -195,8 +187,9 @@ int run_code(SimReg *pReg, int TimerCnt, int *pd)
 	
 	resetReg(pReg);
 	
-	pReg->SP = USER_STACK_ADDR;
+	user_SP = USER_STACK_ADDR;
 	sys_SP = SYS_STACK_ADDR;
+	pReg->SP = user_SP;
 	
 	while((pReg->IR = mem[pReg->PC++]) != END)
 	{
@@ -304,11 +297,11 @@ int run_code(SimReg *pReg, int TimerCnt, int *pd)
 		case CALL_ADDR:		// Push return address onto stack, jump to the address
 			Addr = mem[pReg->PC++];
 			mem_protection(Addr, sys_mode, pd);
-			mem[pReg->SP--] = pReg->PC;	// push onto stack
+			mem[--(pReg->SP)] = pReg->PC;	// push onto stack
 			pReg->PC = Addr;
 			break;
 		case RET:		// Pop return address from the stack, jump to the address
-			pReg->PC = mem[++(pReg->SP)];	// pop from stack
+			pReg->PC = mem[(pReg->SP)++];	// pop from stack
 			break;
 		case INCX:		// Increment the value in X
 			pReg->X++;
@@ -317,19 +310,23 @@ int run_code(SimReg *pReg, int TimerCnt, int *pd)
 			pReg->X--;
 			break;
 		case PUSH:		// Push AC onto stack
-			mem[pReg->SP--] = pReg->AC;	// push onto stack
+			mem[--(pReg->SP)] = pReg->AC;	// push onto stack
 			break;
 		case POP:		// Pop from stack into AC
-			pReg->AC = mem[++(pReg->SP)];	// pop from stack
+			pReg->AC = mem[(pReg->SP)++];	// pop from stack
 			break;
 		case INT:		// Set system mode, switch stack, push SP and PC, set new SP and PC
-			push_reg(pReg, &sys_SP);
+			user_SP = pReg->SP;
+			pReg->SP = sys_SP;
+			push_reg(pReg, &(pReg->SP));
 			pReg->PC = SYS_CALL_ADDR;
 			is_Interrupt = 1;
 			sys_mode = 1;
 			break;
 		case IRET:		// Restore registers, set user mode
-			pop_reg(pReg, &sys_SP);
+			pop_reg(pReg, &(pReg->SP));
+			sys_SP = pReg->SP;
+			pReg->SP = user_SP;
 			if(is_Interrupt == 1)
 				is_Interrupt = 0;
 			sys_mode = 0;
@@ -343,7 +340,9 @@ int run_code(SimReg *pReg, int TimerCnt, int *pd)
 		{
 			sys_mode = 1;
 			loopCnt = 0;
-			push_reg(pReg, &sys_SP);
+			user_SP = pReg->SP;
+			pReg->SP = sys_SP;
+			push_reg(pReg, &(pReg->SP));
 			pReg->PC = TIMER_CALL_ADDR;
 		}
 	}
