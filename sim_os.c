@@ -5,7 +5,7 @@
 
 
 #define _DEBUG_FILENAME_	"sample4.txt"
-#define _DEBUG_X_TIMER_		30
+#define _DEBUG_X_TIMER_		2
 #define _DEBUG_
 
 
@@ -185,7 +185,6 @@ int run_code(SimReg *pReg, int TimerCnt)
 	while((pReg->IR = mem[pReg->PC++]) != END)
 	{
 		PC_protection(pReg->PC, sys_mode);
-		
 		switch(pReg->IR)
 		{
 		case LOAD_VALUE:	// Load the value into the AC
@@ -314,8 +313,9 @@ int run_code(SimReg *pReg, int TimerCnt)
 			break;
 			// getchar();
 		}
-		loopCnt++;
-		if((loopCnt >= TimerCnt) && (is_Interrupt == 0))
+		if(pReg->PC < 1000)
+			loopCnt++;
+		if((loopCnt >= TimerCnt) && (sys_mode == 0))
 		{
 			sys_mode = 1;
 			loopCnt = 0;

@@ -336,7 +336,8 @@ int run_code(SimReg *pReg, int TimerCnt, int *pd)
 			break;
 			// getchar();
 		}
-		loopCnt++;
+		if(pReg->PC < 1000)
+			loopCnt++;
 		if((loopCnt >= TimerCnt) && (is_Interrupt == 0))
 		{
 			sys_mode = 1;
